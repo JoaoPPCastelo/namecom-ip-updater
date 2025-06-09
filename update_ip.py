@@ -50,6 +50,8 @@ def update_namecom_record(new_ip):
         print(f"[ERROR] Failed to update DNS record: {e}")
 
 def main():
+    print(f"[INFO] Starting namecom-ip-updater for domain {DOMAIN_NAME} with host {DNS_HOST}")
+    print(f"[INFO] Checking every {INTERVAL} seconds for IP changes...")
     last_ip = None
     while True:
         current_ip = get_public_ip()
