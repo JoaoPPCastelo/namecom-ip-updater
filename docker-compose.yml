@@ -1,0 +1,14 @@
+version: "3.9"
+
+services:
+  ip-updater:
+    image: joaoppcastelo/namecom-ip-updater:<tag>
+    container_name: ip-updater
+    restart: unless-stopped
+    environment:
+      NAMECOM_USERNAME: your_namecom_username
+      NAMECOM_API_TOKEN: your_api_token
+      DOMAIN_NAME: example.com
+      RECORD_ID: "12345678"
+      DNS_HOST: "@"
+      CHECK_INTERVAL: "300"
