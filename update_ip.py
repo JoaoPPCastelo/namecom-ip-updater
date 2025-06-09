@@ -2,6 +2,14 @@ import os
 import time
 import requests
 import re
+import logging
+from requests.exceptions import RequestException
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(asctime)s] %(levelname)s: %(message)s",
+)
 
 # Configuration from environment
 NAMECOM_USERNAME = os.getenv("NAMECOM_USERNAME")
@@ -12,8 +20,19 @@ DNS_HOST = os.getenv("DNS_HOST", "@")
 INTERVAL = int(os.getenv("CHECK_INTERVAL", "300"))  # in seconds
 
 # Validate environment
-if not all([NAMECOM_USERNAME, NAMECOM_API_TOKEN, DOMAIN_NAME, RECORD_ID]):
-    raise Exception("Missing required environment variables.")
+missing = []
+if not NAMECOM_USERNAME:
+    missing.append("NAMECOM_USERNAME")
+if not NAMECOM_API_TOKEN:
+    missing.append("NAMECOM_API_TOKEN")
+if not DOMAIN_NAME:
+    missing.append("DOMAIN_NAME")
+if not RECORD_ID:
+    missing.append("RECORD_ID")
+
+if missing:
+    logging.error(f"Missing required environment variables: {', '.join(missing)}")
+    exit(1)
 
 IPV4_PATTERN = re.compile(r"^\d{1,3}(\.\d{1,3}){3}$")
 
@@ -24,17 +43,13 @@ def get_public_ip():
         ip = response.text.strip()
         if IPV4_PATTERN.match(ip):
             return ip
-        else:
-            print(f"[ERROR] Invalid IP format: {ip}")
-    except Exception as e:
-        print(f"[ERROR] Failed to get public IP: {e}")
+        logging.warning(f"Invalid IP format received: {ip}")
+    except RequestException as e:
+        logging.warning(f"Could not fetch public IP: {e}")
     return None
 
 def update_namecom_record(new_ip):
     url = f"https://api.name.com/v4/domains/{DOMAIN_NAME}/records/{RECORD_ID}"
-    headers = {
-        "Content-Type": "application/json",
-    }
     auth = (NAMECOM_USERNAME, NAMECOM_API_TOKEN)
     data = {
         "host": DNS_HOST,
@@ -43,24 +58,23 @@ def update_namecom_record(new_ip):
         "ttl": 300
     }
     try:
-        response = requests.put(url, json=data, auth=auth)
+        response = requests.put(url, json=data, auth=auth, timeout=10)
         response.raise_for_status()
-        print(f"[INFO] Updated DNS record to {new_ip}")
-    except requests.exceptions.RequestException as e:
-        print(f"[ERROR] Failed to update DNS record: {e}")
+        logging.info(f"DNS record updated to {new_ip}")
+    except RequestException as e:
+        logging.error(f"Failed to update DNS record: {e}")
 
 def main():
-    print(f"[INFO] Starting namecom-ip-updater for domain {DOMAIN_NAME} with host {DNS_HOST}")
-    print(f"[INFO] Checking every {INTERVAL} seconds for IP changes...")
+    logging.info(f"Starting namecom-ip-updater for domain {DOMAIN_NAME} with host {DNS_HOST}")
     last_ip = None
     while True:
         current_ip = get_public_ip()
         if current_ip and current_ip != last_ip:
-            print(f"[INFO] IP change detected: {last_ip} -> {current_ip}")
+            logging.info(f"IP change detected: {last_ip} → {current_ip}")
             update_namecom_record(current_ip)
             last_ip = current_ip
-        else:
-            print(f"[INFO] IP unchanged or invalid: {current_ip}")
+        elif current_ip:
+            logging.info(f"IP unchanged: {current_ip}")
         time.sleep(INTERVAL)
 
 if __name__ == "__main__":
