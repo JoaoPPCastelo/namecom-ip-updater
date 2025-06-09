@@ -10,5 +10,5 @@ docker run -d \
   -e RECORD_ID="12345678" \
   -e DNS_HOST="@" \
   -e CHECK_INTERVAL="300" \
-  ip-updater
+  joaoppcastelo/namecom-ip-updater:<tag>
 ```
